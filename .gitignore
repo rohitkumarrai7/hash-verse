@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+backend/.venv/
+.env
+*.log
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp / downloads
+backend/tmp/
+*.mp4
+*.mp3
+*.wav
+*.srt
+
+# Models cache
+.cache/
+models/
