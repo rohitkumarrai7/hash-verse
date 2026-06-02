@@ -8,15 +8,15 @@ from qdrant_client.http import models as qmodels
 
 from config import Settings, get_settings
 from models import ChunkPayload
-from services.embedder import embed_texts
+from services.embedder import embed_texts, get_embedding_dimension
 
 
 class VectorStore:
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.collection_name = self.settings.collection_name
-        # BGE-small-en-v1.5 dimension; avoid loading model during API startup
-        self.vector_size = 384
+        # Avoid loading the embedding model during API startup
+        self.vector_size = get_embedding_dimension()
         self.client = self._connect_client()
         self.using_memory = isinstance(self.client, QdrantClient) and self.settings.qdrant_host in {
             ":memory:",

@@ -25,11 +25,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     embedding_model: str = "BAAI/bge-small-en-v1.5"
+    # On Render free tier (512MB), use: sentence-transformers/all-MiniLM-L6-v2 (~90MB ONNX via FastEmbed)
     whisper_model: str = "base"
     ytdlp_cookies_from_browser: str = ""
 
     backend_url: str = "http://localhost:8000"
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,https://hashverse-two.vercel.app"
 
     chunk_size: int = 512
     chunk_overlap: int = 128
