@@ -43,7 +43,7 @@ Built for the [CreatorJoy Technical Round Challenge](https://cliff-fountain-f34.
 | Frontend | Next.js + Tailwind | Side-by-side embedded video cards + SSE chat |
 | Backend | FastAPI | Native async + SSE streaming |
 | Orchestration | **LangGraph** | Intent routing, hook filter, Redis-backed memory |
-| Embeddings | BGE-small-en-v1.5 | $0 local inference, strong retrieval on CPU |
+| Embeddings | BGE-small-en-v1.5 via FastEmbed (ONNX) | ~67MB model RAM; fits Render 512MB tier |
 | Vector DB | **Qdrant** | Payload filters (`video_id`, `is_hook`); hybrid BM25 ready at scale |
 | LLM | **Gemini 2.0 Flash** (default) | Direct API = lowest latency/cost; OpenRouter/OpenAI optional fallbacks |
 | YouTube | youtube-transcript-api + yt-dlp | Free transcripts + multi-language fallback |
@@ -104,9 +104,9 @@ cd frontend && npm install && npm run dev
 
 ### Backend (Render)
 
-1. Use included `render.yaml` or create a Python web service from `backend/`
-2. Set `GEMINI_API_KEY`, `APIFY_TOKEN`, attach Redis add-on
-3. Set `CORS_ORIGINS` to your Vercel URL
+1. Docker deploy from `backend/Dockerfile` (uses `$PORT`, no PyTorch — see [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md))
+2. Set `GEMINI_API_KEY`, `APIFY_TOKEN`, `CORS_ORIGINS=https://hashverse-two.vercel.app`
+3. Vercel: `NEXT_PUBLIC_BACKEND_URL=https://<your-service>.onrender.com`
 
 ## Demo flow (Loom script)
 
