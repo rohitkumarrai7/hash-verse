@@ -15,13 +15,15 @@ export default function ChatMessageItem({ message, onSourceClick }: ChatMessageP
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm leading-6 ${
-          isUser ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-900"
+          isUser
+            ? "bg-accent text-white"
+            : "border border-border bg-surface text-foreground"
         }`}
       >
         {isUser ? (
           <p>{message.content}</p>
         ) : (
-          <div className="prose prose-sm max-w-none prose-zinc">
+          <div className="prose prose-sm max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || " "}</ReactMarkdown>
           </div>
         )}
@@ -38,7 +40,9 @@ export default function ChatMessageItem({ message, onSourceClick }: ChatMessageP
           </div>
         )}
 
-        {message.streaming && <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-zinc-400" />}
+        {message.streaming && (
+          <span className="ml-1 inline-block h-4 w-1 animate-pulse rounded-sm bg-accent" />
+        )}
       </div>
     </div>
   );

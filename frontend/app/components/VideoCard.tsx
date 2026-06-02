@@ -3,6 +3,7 @@ import type { VideoMetadata } from "@/lib/types";
 
 interface VideoCardProps {
   label: string;
+  platform: "youtube" | "instagram";
   video?: VideoMetadata | null;
   loading?: boolean;
   highlighted?: boolean;
@@ -33,43 +34,54 @@ function getInstagramEmbedUrl(url?: string | null) {
   return match ? `https://www.instagram.com/reel/${match[1]}/embed` : null;
 }
 
-function isYoutubeCard(label: string, url?: string | null) {
-  return label.toLowerCase().includes("youtube") || Boolean(url && url.includes("youtube"));
-}
-
 export default function VideoCard({
   label,
+  platform,
   video,
   loading,
   highlighted,
   highlightRange,
 }: VideoCardProps) {
+  const platformClass = platform === "youtube" ? "platform-youtube" : "platform-instagram";
+  const platformLabel = platform === "youtube" ? "YouTube" : "Reels";
+  const platformBadgeClass =
+    platform === "youtube"
+      ? "bg-youtube/10 text-youtube"
+      : "bg-instagram/10 text-instagram";
+
   if (loading) {
     return (
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm animate-pulse">
-        <div className="mb-3 h-4 w-24 rounded bg-zinc-200" />
-        <div className="mb-4 aspect-video rounded-lg bg-zinc-200" />
+      <div className={`card animate-pulse p-4 ${platformClass}`}>
+        <div className="mb-3 h-4 w-24 rounded bg-surface-muted" />
+        <div className="mb-4 aspect-video rounded-lg bg-surface-muted" />
         <div className="space-y-2">
-          <div className="h-4 w-full rounded bg-zinc-200" />
-          <div className="h-4 w-2/3 rounded bg-zinc-200" />
-          <div className="h-4 w-1/2 rounded bg-zinc-200" />
+          <div className="h-4 w-full rounded bg-surface-muted" />
+          <div className="h-4 w-2/3 rounded bg-surface-muted" />
+          <div className="h-4 w-1/2 rounded bg-surface-muted" />
         </div>
       </div>
     );
   }
 
-  const youtubeEmbed = isYoutubeCard(label, video?.url) ? getYoutubeEmbedUrl(video?.url) : null;
-  const instagramEmbed = !youtubeEmbed ? getInstagramEmbedUrl(video?.url) : null;
+  const youtubeEmbed = platform === "youtube" ? getYoutubeEmbedUrl(video?.url) : null;
+  const instagramEmbed = platform === "instagram" ? getInstagramEmbedUrl(video?.url) : null;
 
   return (
     <div
       id={`video-card-${(video?.video_id || label.split(" ")[1] || "x").toLowerCase()}`}
-      className={`rounded-xl border bg-white p-4 shadow-sm transition ring-offset-2 ${
-        highlighted ? "border-indigo-500 ring-2 ring-indigo-300" : "border-zinc-200"
+      className={`card p-4 transition ${platformClass} ${
+        highlighted ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""
       }`}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">{label}</h2>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${platformBadgeClass}`}>
+              {platformLabel}
+            </span>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</h2>
+          </div>
+        </div>
         <EngagementBadge rate={video?.engagement_rate} />
       </div>
 
@@ -84,7 +96,7 @@ export default function VideoCard({
           />
         </div>
       ) : instagramEmbed ? (
-        <div className="mb-4 aspect-[4/5] max-h-[420px] overflow-hidden rounded-lg bg-zinc-100">
+        <div className="mb-4 aspect-[4/5] max-h-[420px] overflow-hidden rounded-lg bg-surface-muted">
           <iframe
             src={instagramEmbed}
             title={video?.title || label}
@@ -101,43 +113,47 @@ export default function VideoCard({
           className="mb-4 aspect-video w-full rounded-lg object-cover"
         />
       ) : (
-        <div className="mb-4 flex aspect-video items-center justify-center rounded-lg bg-zinc-100 text-sm text-zinc-500">
+        <div className="mb-4 flex aspect-video items-center justify-center rounded-lg bg-surface-muted text-sm text-text-muted">
           No preview available
         </div>
       )}
 
-      <h3 className="mb-2 line-clamp-2 text-base font-semibold text-zinc-900">
+      <h3 className="mb-3 line-clamp-2 text-base font-semibold leading-snug text-foreground">
         {video?.title || "Waiting for ingestion..."}
       </h3>
 
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-zinc-700">
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
         <div>
-          <dt className="text-zinc-500">Creator</dt>
-          <dd className="font-medium">{video?.creator || "N/A"}</dd>
+          <dt className="text-xs uppercase tracking-wide text-text-muted">Creator</dt>
+          <dd className="mt-0.5 font-medium text-foreground">{video?.creator || "N/A"}</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Followers</dt>
-          <dd className="font-medium">{formatNumber(video?.follower_count)}</dd>
+          <dt className="text-xs uppercase tracking-wide text-text-muted">Followers</dt>
+          <dd className="metric-value mt-0.5 font-medium text-foreground">
+            {formatNumber(video?.follower_count)}
+          </dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Views</dt>
-          <dd className="font-medium">{formatNumber(video?.views)}</dd>
+          <dt className="text-xs uppercase tracking-wide text-text-muted">Views</dt>
+          <dd className="metric-value mt-0.5 font-medium text-foreground">{formatNumber(video?.views)}</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Likes</dt>
-          <dd className="font-medium">{formatNumber(video?.likes)}</dd>
+          <dt className="text-xs uppercase tracking-wide text-text-muted">Likes</dt>
+          <dd className="metric-value mt-0.5 font-medium text-foreground">{formatNumber(video?.likes)}</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Comments</dt>
-          <dd className="font-medium">{formatNumber(video?.comments)}</dd>
+          <dt className="text-xs uppercase tracking-wide text-text-muted">Comments</dt>
+          <dd className="metric-value mt-0.5 font-medium text-foreground">{formatNumber(video?.comments)}</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Duration</dt>
-          <dd className="font-medium">{formatDuration(video?.duration)}</dd>
+          <dt className="text-xs uppercase tracking-wide text-text-muted">Duration</dt>
+          <dd className="metric-value mt-0.5 font-medium text-foreground">
+            {formatDuration(video?.duration)}
+          </dd>
         </div>
         <div className="col-span-2">
-          <dt className="text-zinc-500">Upload date</dt>
-          <dd className="font-medium">{video?.upload_date || "N/A"}</dd>
+          <dt className="text-xs uppercase tracking-wide text-text-muted">Upload date</dt>
+          <dd className="mt-0.5 font-medium text-foreground">{video?.upload_date || "N/A"}</dd>
         </div>
       </dl>
 
@@ -146,7 +162,7 @@ export default function VideoCard({
           {video.hashtags.slice(0, 8).map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"
+              className="rounded-full border border-border bg-surface-muted px-2 py-0.5 text-xs font-medium text-text-muted"
             >
               #{tag}
             </span>
@@ -155,7 +171,7 @@ export default function VideoCard({
       )}
 
       {highlighted && highlightRange && (
-        <p className="mt-3 rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
+        <p className="mt-3 rounded-md border border-accent/20 bg-accent-light px-2.5 py-1.5 text-xs font-medium text-accent">
           Cited segment: {highlightRange}
         </p>
       )}

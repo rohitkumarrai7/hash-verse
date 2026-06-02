@@ -123,16 +123,16 @@ export default function ChatPanel({ sessionId, ready, onSourceClick }: ChatPanel
   );
 
   return (
-    <div className="flex h-full min-h-[640px] flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
-      <div className="border-b border-zinc-200 px-4 py-3">
-        <h2 className="text-base font-semibold text-zinc-900">Creator Intelligence Chat</h2>
-        <p className="text-xs text-zinc-500">Streaming RAG with source citations and memory</p>
+    <div className="card flex h-full min-h-[640px] flex-col overflow-hidden">
+      <div className="border-b border-border bg-surface-muted px-4 py-3">
+        <h2 className="text-base font-semibold text-foreground">Creator Intelligence Chat</h2>
+        <p className="text-xs text-text-muted">Streaming RAG with source citations and memory</p>
       </div>
 
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
-          <div className="space-y-2">
-            <p className="text-sm text-zinc-500">
+          <div className="space-y-3">
+            <p className="text-sm text-text-muted">
               {ready
                 ? "Ask a comparative question about Video A (YouTube) and Video B (Instagram)."
                 : "Ingest both videos to start chatting."}
@@ -144,7 +144,7 @@ export default function ChatPanel({ sessionId, ready, onSourceClick }: ChatPanel
                   type="button"
                   disabled={!ready || sending}
                   onClick={() => sendMessage(suggestion)}
-                  className="rounded-full border border-zinc-200 px-3 py-1 text-left text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                  className="btn-secondary text-left"
                 >
                   {suggestion}
                 </button>
@@ -159,7 +159,7 @@ export default function ChatPanel({ sessionId, ready, onSourceClick }: ChatPanel
       </div>
 
       <form
-        className="border-t border-zinc-200 p-4"
+        className="border-t border-border bg-surface p-4"
         onSubmit={(event) => {
           event.preventDefault();
           sendMessage(debouncedInput || input);
@@ -171,13 +171,9 @@ export default function ChatPanel({ sessionId, ready, onSourceClick }: ChatPanel
             onChange={(event) => setInput(event.target.value)}
             disabled={!ready || sending}
             placeholder={ready ? "Ask about engagement, hooks, creators..." : "Waiting for ingestion..."}
-            className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-zinc-50"
+            className="input flex-1"
           />
-          <button
-            type="submit"
-            disabled={!ready || sending || !input.trim()}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
+          <button type="submit" disabled={!ready || sending || !input.trim()} className="btn-primary shrink-0">
             Send
           </button>
         </div>

@@ -6,12 +6,15 @@ interface SourceBadgeProps {
 }
 
 export default function SourceBadge({ source, onClick }: SourceBadgeProps) {
+  const dotClass = source.video_id === "A" ? "bg-youtube" : "bg-instagram";
+
   return (
     <button
       type="button"
       onClick={() => onClick?.(source)}
-      className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+      className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-surface px-2.5 py-1 text-xs font-medium text-accent transition hover:border-accent hover:bg-accent-light"
     >
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`} />
       Video {source.video_id} · Chunk {source.chunk_index} · {source.time_range}
     </button>
   );

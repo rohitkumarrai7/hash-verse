@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AppHeader from "./components/AppHeader";
 import ChatPanel from "./components/ChatPanel";
 import URLInputForm from "./components/URLInputForm";
 import VideoCard from "./components/VideoCard";
-import { BACKEND_URL, checkBackendHealth, getIngestStatus, startIngest } from "@/lib/api";
+import { checkBackendHealth, getIngestStatus, startIngest } from "@/lib/api";
 import type { SourceCitation, VideoMetadata } from "@/lib/types";
 
 const DEFAULT_YOUTUBE = "";
@@ -30,7 +31,7 @@ export default function Home() {
       if (!cancelled) {
         setBackendOnline(online);
         if (!online) {
-          setStatusMessage(`Backend offline at ${BACKEND_URL}. Run: cd backend && .\\run.bat`);
+          setStatusMessage("Backend offline. Run: cd backend && .\\run.bat");
         }
       }
     };
@@ -114,6 +115,12 @@ export default function Home() {
     return 10;
   }, [ingesting, ready, videoA, videoB, statusMessage]);
 
+  const workflowStep = useMemo(() => {
+    if (ready) return "analyze" as const;
+    if (ingesting) return "ingest" as const;
+    return "paste" as const;
+  }, [ready, ingesting]);
+
   const isError =
     statusMessage &&
     (statusMessage.toLowerCase().includes("fail") ||
@@ -123,8 +130,10 @@ export default function Home() {
       statusMessage === "Session not found");
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <div className="mx-auto max-w-7xl px-4 py-6">
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <AppHeader backendOnline={backendOnline} step={workflowStep} />
+
         <URLInputForm
           youtubeUrl={youtubeUrl}
           instagramUrl={instagramUrl}
@@ -134,26 +143,15 @@ export default function Home() {
           onSubmit={handleIngest}
         />
 
-        <div className="mt-2 flex items-center gap-2 text-xs">
-          <span
-            className={`inline-block h-2 w-2 rounded-full ${
-              backendOnline === null ? "bg-zinc-300" : backendOnline ? "bg-emerald-500" : "bg-red-500"
-            }`}
-          />
-          <span className="text-zinc-500">
-            Backend {backendOnline === null ? "checking..." : backendOnline ? "online" : "offline"} ({BACKEND_URL})
-          </span>
-        </div>
-
         {ingesting && (
-          <div className="mt-3">
-            <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
+          <div className="mt-4 card p-4">
+            <div className="mb-2 flex items-center justify-between text-xs font-medium text-text-muted">
               <span>Ingestion progress</span>
-              <span>{ingestProgress}%</span>
+              <span className="metric-value text-foreground">{ingestProgress}%</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
+            <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
               <div
-                className="h-full rounded-full bg-indigo-600 transition-all duration-500"
+                className="h-full rounded-full bg-accent transition-all duration-500"
                 style={{ width: `${ingestProgress}%` }}
               />
             </div>
@@ -161,12 +159,19 @@ export default function Home() {
         )}
 
         {statusMessage && (
-          <p className={`mt-3 text-sm ${isError ? "text-red-600" : "text-zinc-600"}`}>{statusMessage}</p>
+          <p
+            className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+              isError ? "bg-danger/10 text-danger" : "bg-surface-muted text-text-muted"
+            }`}
+          >
+            {statusMessage}
+          </p>
         )}
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
           <VideoCard
             label="Video A · YouTube"
+            platform="youtube"
             video={videoA}
             loading={ingesting && !videoA}
             highlighted={highlight?.videoId === "A"}
@@ -174,6 +179,7 @@ export default function Home() {
           />
           <VideoCard
             label="Video B · Instagram"
+            platform="instagram"
             video={videoB}
             loading={ingesting && !videoB}
             highlighted={highlight?.videoId === "B"}
