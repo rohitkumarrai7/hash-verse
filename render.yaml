@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: creatorjoy-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: APIFY_TOKEN
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: creatorjoy-redis
+          type: redis
+          property: connectionString
+      - key: QDRANT_HOST
+        value: localhost
+      - key: CORS_ORIGINS
+        value: https://your-frontend.vercel.app
+
+  - type: redis
+    name: creatorjoy-redis
+    ipAllowList: []
