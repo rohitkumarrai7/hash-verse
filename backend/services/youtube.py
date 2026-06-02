@@ -15,7 +15,7 @@ from models import TranscriptSegment, VideoMetadata
 from services.metadata import build_video_metadata
 from services.transcript import chunk_transcript, extract_hashtags
 from services.whisper_transcribe import parse_srt, transcribe_url_with_ytdlp
-from services.ytdlp_utils import ytdlp_command
+from services.ytdlp_utils import ytdlp_command, ytdlp_youtube_command
 
 logger = logging.getLogger(__name__)
 
@@ -99,29 +99,30 @@ def _fetch_transcript_ytdlp(url: str) -> list[TranscriptSegment]:
     settings = get_settings()
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = Path(tmpdir) / "subs"
-        cmd = ytdlp_command(
+        sub_langs = "en.*,hi.*,a.en,a.hi,en-orig"
+        cmd = ytdlp_youtube_command(
             "--skip-download",
             "--write-auto-sub",
             "--write-sub",
             "--sub-langs",
-            "en,hi,a.en,a.hi,en-orig,*",
-            "--convert-subs",
-            "srt",
+            sub_langs,
+            "--sub-format",
+            "json3/srt/best",
             "-o",
             str(output_path),
             url,
         )
         if settings.ytdlp_cookies_from_browser:
-            cmd = ytdlp_command(
+            cmd = ytdlp_youtube_command(
                 "--cookies-from-browser",
                 settings.ytdlp_cookies_from_browser,
                 "--skip-download",
                 "--write-auto-sub",
                 "--write-sub",
                 "--sub-langs",
-                "en,hi,a.en,a.hi,en-orig,*",
-                "--convert-subs",
-                "srt",
+                sub_langs,
+                "--sub-format",
+                "json3/srt/best",
                 "-o",
                 str(output_path),
                 url,
@@ -148,17 +149,18 @@ def fetch_transcript(url: str) -> list[TranscriptSegment]:
     video_id = _extract_video_id(url)
     errors: list[str] = []
 
+    # yt-dlp first — more reliable for Shorts and cloud server IPs
+    try:
+        return _fetch_transcript_ytdlp(url)
+    except Exception as exc:
+        errors.append(f"yt-dlp subs: {exc}")
+
     try:
         return _fetch_via_transcript_api(video_id)
     except (NoTranscriptFound, TranscriptsDisabled) as exc:
         errors.append(f"transcript API: {exc}")
     except Exception as exc:
         errors.append(f"transcript API: {exc}")
-
-    try:
-        return _fetch_transcript_ytdlp(url)
-    except Exception as exc:
-        errors.append(f"yt-dlp subs: {exc}")
 
     try:
         logger.info("Falling back to Whisper for YouTube URL")
@@ -180,9 +182,9 @@ def _fetch_oembed(url: str) -> dict:
 
 def fetch_metadata(url: str) -> dict:
     settings = get_settings()
-    cmd = ytdlp_command("--dump-json", "--no-download", url)
+    cmd = ytdlp_youtube_command("--dump-json", "--no-download", url)
     if settings.ytdlp_cookies_from_browser:
-        cmd = ytdlp_command(
+        cmd = ytdlp_youtube_command(
             "--cookies-from-browser",
             settings.ytdlp_cookies_from_browser,
             "--dump-json",

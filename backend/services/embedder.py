@@ -29,7 +29,12 @@ def get_embedding_dimension(model_name: str | None = None) -> int:
 
 @lru_cache
 def get_embedding_model() -> TextEmbedding:
-    from fastembed import TextEmbedding
+    try:
+        from fastembed import TextEmbedding
+    except ImportError as exc:
+        raise ImportError(
+            "fastembed is not installed. Run: cd backend && .venv\\Scripts\\pip install -r requirements.txt"
+        ) from exc
 
     settings = get_settings()
     logger.info("Loading FastEmbed model: %s", settings.embedding_model)

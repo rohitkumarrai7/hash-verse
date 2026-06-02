@@ -83,16 +83,14 @@ def transcribe_url_with_ytdlp(url: str, output_stem: str = "audio") -> list[Tran
     with tempfile.TemporaryDirectory() as tmpdir:
         output_base = str(Path(tmpdir) / output_stem)
         cmd = ytdlp_command(
-            [
-                "-x",
-                "--audio-format",
-                "wav",
-                "--audio-quality",
-                "0",
-                "-o",
-                output_base,
-                url,
-            ]
+            "-x",
+            "--audio-format",
+            "wav",
+            "--audio-quality",
+            "0",
+            "-o",
+            output_base,
+            url,
         )
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
