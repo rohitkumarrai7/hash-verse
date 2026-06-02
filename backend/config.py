@@ -10,9 +10,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     openai_api_key: str = ""
     openrouter_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.5-flash"
     openai_model: str = "gpt-4o-mini"
-    openrouter_model: str = "google/gemini-2.0-flash-001"
+    openrouter_model: str = "google/gemini-2.5-flash"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     apify_token: str = ""

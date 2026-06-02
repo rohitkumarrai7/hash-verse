@@ -9,8 +9,12 @@ services:
     envVars:
       - key: LLM_PROVIDER
         value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
       - key: GEMINI_API_KEY
         sync: false
+      - key: OPENROUTER_MODEL
+        value: google/gemini-2.5-flash
       - key: APIFY_TOKEN
         sync: false
       - key: EMBEDDING_MODEL
