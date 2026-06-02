@@ -31,6 +31,8 @@ Render injects a dynamic **`PORT`** (e.g. `10000`). Hardcoding `--port 8000` mea
 | `APIFY_TOKEN` | your token |
 | `CORS_ORIGINS` | `https://hashverse-two.vercel.app` |
 | `LLM_PROVIDER` | `gemini` |
+| `QDRANT_URL` | `https://<cluster>.aws.cloud.qdrant.io` |
+| `QDRANT_API_KEY` | your Qdrant Cloud API key |
 
 ## Vercel frontend
 

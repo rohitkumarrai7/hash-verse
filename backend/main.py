@@ -4,7 +4,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
@@ -21,11 +21,14 @@ async def lifespan(app: FastAPI):
     vector_store = VectorStore(settings)
     vector_store.ensure_collection()
     app.state.vector_store = vector_store
-    logger.info(
-        "API ready (qdrant=%s, embedding=%s)",
-        "memory" if vector_store.using_memory else settings.qdrant_host,
-        settings.embedding_model,
+    qdrant_mode = (
+        "cloud"
+        if vector_store.using_cloud
+        else "memory"
+        if vector_store.using_memory
+        else f"{settings.qdrant_host}:{settings.qdrant_port}"
     )
+    logger.info("API ready (qdrant=%s, embedding=%s)", qdrant_mode, settings.embedding_model)
     yield
 
 
@@ -50,8 +53,20 @@ async def root():
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok"}
+async def health(request: Request):
+    vector_store = request.app.state.vector_store
+    qdrant_status = (
+        "cloud"
+        if vector_store.using_cloud
+        else "memory"
+        if vector_store.using_memory
+        else "local"
+    )
+    return {
+        "status": "ok",
+        "qdrant": qdrant_status,
+        "collection": vector_store.collection_name,
+    }
 
 
 if __name__ == "__main__":

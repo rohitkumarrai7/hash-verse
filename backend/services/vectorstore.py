@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
@@ -10,6 +11,8 @@ from config import Settings, get_settings
 from models import ChunkPayload
 from services.embedder import embed_texts, get_embedding_dimension
 
+logger = logging.getLogger(__name__)
+
 
 class VectorStore:
     def __init__(self, settings: Settings | None = None):
@@ -18,23 +21,46 @@ class VectorStore:
         # Avoid loading the embedding model during API startup
         self.vector_size = get_embedding_dimension()
         self.client = self._connect_client()
-        self.using_memory = isinstance(self.client, QdrantClient) and self.settings.qdrant_host in {
-            ":memory:",
-            "memory",
-        }
+        self.using_memory = getattr(self, "_using_memory", False)
+        self.using_cloud = getattr(self, "_using_cloud", False)
 
     def _connect_client(self) -> QdrantClient:
+        settings = self.settings
+
+        if settings.qdrant_url and settings.qdrant_api_key:
+            try:
+                client = QdrantClient(
+                    url=settings.qdrant_url.rstrip("/"),
+                    api_key=settings.qdrant_api_key,
+                    timeout=10,
+                    check_compatibility=False,
+                )
+                client.get_collections()
+                self._using_memory = False
+                self._using_cloud = True
+                logger.info("Qdrant connected via cloud URL")
+                return client
+            except Exception as exc:
+                logger.warning("Qdrant cloud connection failed (%s); trying local fallback", exc)
+
         try:
             client = QdrantClient(
-                host=self.settings.qdrant_host,
-                port=self.settings.qdrant_port,
+                host=settings.qdrant_host,
+                port=settings.qdrant_port,
                 timeout=3,
                 check_compatibility=False,
             )
             client.get_collections()
+            self._using_memory = False
+            self._using_cloud = False
+            logger.info("Qdrant connected at %s:%s", settings.qdrant_host, settings.qdrant_port)
             return client
-        except Exception:
-            return QdrantClient(":memory:", check_compatibility=False)
+        except Exception as exc:
+            logger.warning("Qdrant local connection failed (%s); using in-memory store", exc)
+
+        self._using_memory = True
+        self._using_cloud = False
+        return QdrantClient(":memory:", check_compatibility=False)
 
     def ensure_collection(self) -> None:
         collections = self.client.get_collections().collections

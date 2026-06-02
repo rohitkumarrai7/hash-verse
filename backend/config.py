@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     apify_token: str = ""
     apify_actor_id: str = "apify/instagram-reel-scraper"
 
+    qdrant_url: str = ""
+    qdrant_api_key: str = ""
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
     collection_name: str = "video_chunks"
