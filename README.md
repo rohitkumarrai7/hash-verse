@@ -68,8 +68,8 @@ LangGraph handles retrieval + memory; the router streams tokens via Gemini's asy
 ### Quick start
 
 ```bash
-git clone https://github.com/rohitkumarrai7/hashverse.git
-cd hashverse
+git clone https://github.com/rohitkumarrai7/hash-verse.git
+cd hash-verse
 cp .env.example .env
 cp backend/.env.example backend/.env
 # Edit both .env files with your keys
