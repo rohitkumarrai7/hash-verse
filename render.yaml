@@ -20,7 +20,7 @@ services:
       - key: EMBEDDING_MODEL
         value: BAAI/bge-small-en-v1.5
       - key: CORS_ORIGINS
-        value: https://hashverse-two.vercel.app,http://localhost:3000
+        value: https://hash-verse.vercel.app,https://hashverse-two.vercel.app,http://localhost:3000
       - key: BACKEND_URL
         fromService:
           type: web

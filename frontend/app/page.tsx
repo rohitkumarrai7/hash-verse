@@ -5,7 +5,7 @@ import AppHeader from "./components/AppHeader";
 import ChatPanel from "./components/ChatPanel";
 import URLInputForm from "./components/URLInputForm";
 import VideoCard from "./components/VideoCard";
-import { checkBackendHealth, getIngestStatus, startIngest } from "@/lib/api";
+import { BACKEND_URL, checkBackendHealth, getIngestStatus, isLocalBackend, startIngest } from "@/lib/api";
 import type { SourceCitation, VideoMetadata } from "@/lib/types";
 
 const DEFAULT_YOUTUBE = "";
@@ -31,7 +31,13 @@ export default function Home() {
       if (!cancelled) {
         setBackendOnline(online);
         if (!online) {
-          setStatusMessage("Backend offline. Run: cd backend && .\\run.bat");
+          setStatusMessage(
+            isLocalBackend()
+              ? "Backend offline. Run: cd backend && .\\run.bat"
+              : `Backend waking up at ${BACKEND_URL} (Render free tier may take ~60s). Retrying…`,
+          );
+        } else if (statusMessage?.includes("waking up") || statusMessage?.includes("Backend offline")) {
+          setStatusMessage(null);
         }
       }
     };

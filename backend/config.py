@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     backend_url: str = "http://localhost:8000"
     cors_origins: str = (
-        "http://localhost:3000,https://hashverse-two.vercel.app,https://hash-verse.vercel.app"
+        "http://localhost:3000,https://hash-verse.vercel.app,https://hashverse-two.vercel.app"
     )
 
     chunk_size: int = 512

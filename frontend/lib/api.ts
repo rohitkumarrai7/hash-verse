@@ -52,13 +52,33 @@ function parseSseBuffer(buffer: string): { events: SSEEvent[]; rest: string } {
   return { events, rest };
 }
 
+const HEALTH_TIMEOUT_MS = 90_000;
+const HEALTH_RETRIES = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function checkBackendHealth(): Promise<boolean> {
-  try {
-    const response = await apiFetch(`${BACKEND_URL}/health`, { cache: "no-store" });
-    return response.ok;
-  } catch {
-    return false;
+  for (let attempt = 0; attempt < HEALTH_RETRIES; attempt++) {
+    try {
+      const response = await apiFetch(`${BACKEND_URL}/health`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+      });
+      if (response.ok) return true;
+    } catch {
+      // Render free tier cold starts can take 50s+ on first request
+    }
+    if (attempt < HEALTH_RETRIES - 1) {
+      await sleep(3000);
+    }
   }
+  return false;
+}
+
+export function isLocalBackend(): boolean {
+  return BACKEND_URL.includes("127.0.0.1") || BACKEND_URL.includes("localhost");
 }
 
 export async function startIngest(sessionId: string, youtubeUrl: string, instagramUrl: string) {
