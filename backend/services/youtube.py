@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+from apify_client import ApifyClient
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 
@@ -145,6 +146,54 @@ def _fetch_transcript_ytdlp(url: str) -> list[TranscriptSegment]:
         raise ValueError("Could not fetch YouTube transcript via yt-dlp subtitles")
 
 
+def _dataset_id_from_run(run) -> str:
+    if isinstance(run, dict):
+        return run["defaultDatasetId"]
+    dataset_id = getattr(run, "default_dataset_id", None)
+    if dataset_id:
+        return dataset_id
+    raise ValueError("Could not resolve Apify dataset id from actor run")
+
+
+def _segments_from_apify_item(item: dict) -> list[TranscriptSegment]:
+    rows = item.get("data") or item.get("transcript") or []
+    segments: list[TranscriptSegment] = []
+    for row in rows:
+        text = (row.get("text") or "").strip()
+        if not text:
+            continue
+        start = float(row.get("start") or row.get("startTime") or 0)
+        duration = float(row.get("dur") or row.get("duration") or 0)
+        segments.append(
+            TranscriptSegment(
+                start_time=start,
+                end_time=start + duration,
+                text=text,
+            )
+        )
+    return segments
+
+
+def _fetch_via_apify(url: str) -> list[TranscriptSegment]:
+    settings = get_settings()
+    if not settings.apify_token:
+        raise ValueError("APIFY_TOKEN not configured")
+
+    client = ApifyClient(settings.apify_token)
+    run = client.actor(settings.apify_youtube_actor_id).call(run_input={"videoUrl": url})
+    items = list(client.dataset(_dataset_id_from_run(run)).iterate_items())
+    if not items:
+        raise ValueError("Apify returned no YouTube transcript data")
+
+    for item in items:
+        segments = _segments_from_apify_item(item)
+        if segments:
+            logger.info("YouTube transcript fetched via Apify (%s segments)", len(segments))
+            return segments
+
+    raise ValueError("Apify returned empty YouTube transcript")
+
+
 def fetch_transcript(url: str) -> list[TranscriptSegment]:
     video_id = _extract_video_id(url)
     errors: list[str] = []
@@ -161,6 +210,12 @@ def fetch_transcript(url: str) -> list[TranscriptSegment]:
         errors.append(f"transcript API: {exc}")
     except Exception as exc:
         errors.append(f"transcript API: {exc}")
+
+    try:
+        logger.info("Falling back to Apify for YouTube transcript (cloud-safe)")
+        return _fetch_via_apify(url)
+    except Exception as exc:
+        errors.append(f"apify: {exc}")
 
     try:
         logger.info("Falling back to Whisper for YouTube URL")

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     apify_token: str = ""
     apify_actor_id: str = "apify/instagram-reel-scraper"
+    apify_youtube_actor_id: str = "pintostudio/youtube-transcript-scraper"
 
     qdrant_url: str = ""
     qdrant_api_key: str = ""

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from config import get_settings
 from models import TranscriptSegment
-from services.ytdlp_utils import ytdlp_command
+from services.ytdlp_utils import ytdlp_youtube_command
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def parse_srt(srt_text: str) -> list[TranscriptSegment]:
 def transcribe_url_with_ytdlp(url: str, output_stem: str = "audio") -> list[TranscriptSegment]:
     with tempfile.TemporaryDirectory() as tmpdir:
         output_base = str(Path(tmpdir) / output_stem)
-        cmd = ytdlp_command(
+        cmd = ytdlp_youtube_command(
             "-x",
             "--audio-format",
             "wav",

@@ -9,6 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 # ffmpeg for yt-dlp audio extraction (optional Instagram fallback path)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
