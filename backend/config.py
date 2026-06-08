@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     ytdlp_cookies_from_browser: str = ""
 
     backend_url: str = "http://localhost:8000"
-    cors_origins: str = "http://localhost:3000,https://hashverse-two.vercel.app"
+    cors_origins: str = (
+        "http://localhost:3000,https://hashverse-two.vercel.app,https://hash-verse.vercel.app"
+    )
 
     chunk_size: int = 512
     chunk_overlap: int = 128
