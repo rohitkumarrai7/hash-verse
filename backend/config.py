@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     apify_token: str = ""
-    apify_actor_id: str = "apify/instagram-reel-scraper"
+    apify_actor_id: str = "apify/instagram-scraper"
     apify_youtube_actor_id: str = "pintostudio/youtube-transcript-scraper"
 
     qdrant_url: str = ""

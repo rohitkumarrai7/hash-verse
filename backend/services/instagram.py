@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import tempfile
@@ -15,6 +16,32 @@ from services.metadata import build_video_metadata, normalize_count
 from services.transcript import chunk_transcript, extract_hashtags
 from services.whisper_transcribe import transcribe_media_file
 from services.ytdlp_utils import ytdlp_command
+from services.youtube import is_cloud_host
+
+logger = logging.getLogger(__name__)
+
+APIFY_AUTH_HINT = (
+    "Apify token invalid or missing on the server. In Render → hashverse-api → Environment, "
+    "set APIFY_TOKEN to your key from https://console.apify.com/account/integrations"
+)
+APIFY_USAGE_HINT = (
+    "Apify monthly usage limit exceeded. Upgrade your plan at https://console.apify.com/billing "
+    "or ingest will use yt-dlp caption fallback when available."
+)
+
+
+def _format_apify_error(exc: Exception) -> str:
+    msg = str(exc).lower()
+    if "monthly usage hard limit" in msg or "usage hard limit exceeded" in msg:
+        return APIFY_USAGE_HINT
+    if (
+        "token is not valid" in msg
+        or "user was not found" in msg
+        or "unauthorized" in msg
+        or ("header value" in msg and "bearer" in msg)
+    ):
+        return APIFY_AUTH_HINT
+    return str(exc)
 
 
 def _extract_shortcode(url: str) -> str:
@@ -44,14 +71,17 @@ def fetch_via_apify(url: str) -> tuple[VideoMetadata, list[TranscriptSegment], d
     if not settings.apify_token:
         raise ValueError("APIFY_TOKEN not configured")
 
-    client = ApifyClient(settings.apify_token)
-    run = client.actor(settings.apify_actor_id).call(
-        run_input={
-            "directUrls": [url],
-            "resultsType": "posts",
-            "resultsLimit": 1,
-        }
-    )
+    try:
+        client = ApifyClient(settings.apify_token)
+        run = client.actor(settings.apify_actor_id).call(
+            run_input={
+                "directUrls": [url],
+                "resultsType": "posts",
+                "resultsLimit": 1,
+            }
+        )
+    except Exception as exc:
+        raise ValueError(_format_apify_error(exc)) from exc
     dataset_items = list(client.dataset(_dataset_id_from_run(run)).iterate_items())
     if not dataset_items:
         raise ValueError("Apify returned no data for Instagram URL")
@@ -91,6 +121,13 @@ def fetch_via_apify(url: str) -> tuple[VideoMetadata, list[TranscriptSegment], d
     return metadata, segments, item
 
 
+def _segments_from_caption(caption: str, duration: float | None) -> list[TranscriptSegment]:
+    if not caption.strip():
+        return []
+    end_time = duration or 30.0
+    return [TranscriptSegment(start_time=0.0, end_time=end_time, text=caption.strip())]
+
+
 def _segments_from_apify_item(
     item: dict[str, Any], caption: str, duration: float | None
 ) -> list[TranscriptSegment]:
@@ -106,10 +143,39 @@ def _segments_from_apify_item(
         if segments:
             return segments
 
-    if caption.strip():
-        end_time = duration or 30.0
-        return [TranscriptSegment(start_time=0.0, end_time=end_time, text=caption.strip())]
-    return []
+    return _segments_from_caption(caption, duration)
+
+
+def fetch_via_ytdlp(url: str) -> tuple[VideoMetadata, list[TranscriptSegment], dict[str, Any]]:
+    """Metadata + caption via yt-dlp — works on Render without Apify or Whisper."""
+    cmd = ytdlp_command("--dump-json", "--no-download", url)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise ValueError(result.stderr.strip() or "yt-dlp could not fetch Instagram metadata")
+
+    info = json.loads(result.stdout)
+    caption = info.get("description") or info.get("title") or ""
+    duration = float(info.get("duration") or 0) or None
+
+    metadata = build_video_metadata(
+        video_id="B",
+        url=url,
+        title=caption[:120] if caption else "Instagram Reel",
+        creator=info.get("uploader") or info.get("channel"),
+        follower_count=info.get("channel_follower_count") or info.get("follower_count"),
+        views=info.get("view_count") or info.get("play_count"),
+        likes=info.get("like_count"),
+        comments=info.get("comment_count"),
+        hashtags=extract_hashtags(caption),
+        upload_date=info.get("upload_date"),
+        duration=duration,
+        thumbnail_url=info.get("thumbnail"),
+    )
+    segments = _segments_from_caption(caption, duration)
+    if not segments:
+        raise ValueError("Instagram reel has no caption text for transcript")
+    logger.info("Instagram ingested via yt-dlp caption (%s chars)", len(caption))
+    return metadata, segments, info
 
 
 def fetch_via_whisper(url: str) -> tuple[VideoMetadata, list[TranscriptSegment], dict[str, Any]]:
@@ -166,12 +232,21 @@ def ingest_instagram(url: str) -> tuple[VideoMetadata, list]:
                 return metadata, chunks
             errors.append("Apify returned metadata but no transcript segments")
         except Exception as exc:
-            errors.append(f"Apify failed: {exc}")
+            errors.append(f"Apify failed: {_format_apify_error(exc)}")
 
     try:
-        metadata, segments, _ = fetch_via_whisper(clean_url)
+        metadata, segments, _ = fetch_via_ytdlp(clean_url)
         chunks = chunk_transcript(segments, metadata)
         return metadata, chunks
     except Exception as exc:
-        errors.append(f"Whisper fallback failed: {exc}")
-        raise ValueError("; ".join(errors)) from exc
+        errors.append(f"yt-dlp failed: {exc}")
+
+    if not is_cloud_host():
+        try:
+            metadata, segments, _ = fetch_via_whisper(clean_url)
+            chunks = chunk_transcript(segments, metadata)
+            return metadata, chunks
+        except Exception as exc:
+            errors.append(f"Whisper fallback failed: {exc}")
+
+    raise ValueError("; ".join(errors))

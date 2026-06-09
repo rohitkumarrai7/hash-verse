@@ -38,12 +38,16 @@ def is_cloud_host() -> bool:
 
 def _format_apify_error(exc: Exception) -> str:
     msg = str(exc).lower()
+    if "monthly usage hard limit" in msg or "usage hard limit exceeded" in msg:
+        return (
+            "Apify monthly usage limit exceeded. YouTube will try youtube-transcript.ai and "
+            "other fallbacks automatically."
+        )
     if (
         "token is not valid" in msg
         or "user was not found" in msg
         or "unauthorized" in msg
-        or "header value" in msg
-        and "bearer" in msg
+        or ("header value" in msg and "bearer" in msg)
     ):
         return APIFY_AUTH_HINT
     return str(exc)
