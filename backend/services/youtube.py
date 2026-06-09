@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -21,6 +23,22 @@ from services.ytdlp_utils import ytdlp_command, ytdlp_youtube_command
 logger = logging.getLogger(__name__)
 
 PREFERRED_LANGUAGES = ["en", "en-US", "en-GB", "en-IN", "hi", "hi-IN", "es", "fr", "de"]
+
+APIFY_AUTH_HINT = (
+    "Apify token invalid or missing on the server. In Render → hashverse-api → Environment, "
+    "set APIFY_TOKEN to your key from https://console.apify.com/account/integrations"
+)
+
+
+def is_cloud_host() -> bool:
+    return bool(os.environ.get("RENDER") or os.environ.get("RENDER_SERVICE_ID"))
+
+
+def _format_apify_error(exc: Exception) -> str:
+    msg = str(exc).lower()
+    if "token is not valid" in msg or "user was not found" in msg or "unauthorized" in msg:
+        return APIFY_AUTH_HINT
+    return str(exc)
 
 
 def _extract_video_id(url: str) -> str:
@@ -177,10 +195,13 @@ def _segments_from_apify_item(item: dict) -> list[TranscriptSegment]:
 def _fetch_via_apify(url: str) -> list[TranscriptSegment]:
     settings = get_settings()
     if not settings.apify_token:
-        raise ValueError("APIFY_TOKEN not configured")
+        raise ValueError(APIFY_AUTH_HINT)
 
-    client = ApifyClient(settings.apify_token)
-    run = client.actor(settings.apify_youtube_actor_id).call(run_input={"videoUrl": url})
+    try:
+        client = ApifyClient(settings.apify_token)
+        run = client.actor(settings.apify_youtube_actor_id).call(run_input={"videoUrl": url})
+    except Exception as exc:
+        raise ValueError(_format_apify_error(exc)) from exc
     items = list(client.dataset(_dataset_id_from_run(run)).iterate_items())
     if not items:
         raise ValueError("Apify returned no YouTube transcript data")
@@ -196,33 +217,45 @@ def _fetch_via_apify(url: str) -> list[TranscriptSegment]:
 
 def fetch_transcript(url: str) -> list[TranscriptSegment]:
     video_id = _extract_video_id(url)
+    settings = get_settings()
     errors: list[str] = []
 
-    # yt-dlp first — more reliable for Shorts and cloud server IPs
-    try:
-        return _fetch_transcript_ytdlp(url)
-    except Exception as exc:
-        errors.append(f"yt-dlp subs: {exc}")
+    strategies: list[tuple[str, Callable[[], list[TranscriptSegment]]]] = []
 
-    try:
-        return _fetch_via_transcript_api(video_id)
-    except (NoTranscriptFound, TranscriptsDisabled) as exc:
-        errors.append(f"transcript API: {exc}")
-    except Exception as exc:
-        errors.append(f"transcript API: {exc}")
+    # On Render, YouTube blocks datacenter IPs — Apify runs on residential infra
+    if is_cloud_host() and settings.apify_token:
+        strategies.append(("apify", lambda: _fetch_via_apify(url)))
 
-    try:
-        logger.info("Falling back to Apify for YouTube transcript (cloud-safe)")
-        return _fetch_via_apify(url)
-    except Exception as exc:
-        errors.append(f"apify: {exc}")
+    strategies.extend(
+        [
+            ("yt-dlp subs", lambda: _fetch_transcript_ytdlp(url)),
+            ("transcript API", lambda: _fetch_via_transcript_api(video_id)),
+        ]
+    )
 
-    try:
-        logger.info("Falling back to Whisper for YouTube URL")
-        return transcribe_url_with_ytdlp(url, output_stem="youtube")
-    except Exception as exc:
-        errors.append(f"whisper: {exc}")
-        raise ValueError("; ".join(errors)) from exc
+    if not any(name == "apify" for name, _ in strategies):
+        strategies.append(("apify", lambda: _fetch_via_apify(url)))
+
+    if not is_cloud_host():
+        strategies.append(("whisper", lambda: transcribe_url_with_ytdlp(url, output_stem="youtube")))
+
+    apify_auth_failed = False
+    for name, attempt in strategies:
+        if apify_auth_failed and name == "apify":
+            continue
+        try:
+            logger.info("Trying YouTube transcript via %s", name)
+            return attempt()
+        except Exception as exc:
+            detail = _format_apify_error(exc) if name == "apify" else str(exc)
+            errors.append(f"{name}: {detail}")
+            if name == "apify" and detail == APIFY_AUTH_HINT:
+                apify_auth_failed = True
+
+    if is_cloud_host() and not settings.apify_token:
+        errors.insert(0, f"apify: {APIFY_AUTH_HINT}")
+
+    raise ValueError("; ".join(errors))
 
 
 def _fetch_oembed(url: str) -> dict:

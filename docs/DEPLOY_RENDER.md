@@ -28,7 +28,7 @@ Render injects a dynamic **`PORT`** (e.g. `10000`). Hardcoding `--port 8000` mea
 | Variable | Example |
 |----------|---------|
 | `GEMINI_API_KEY` | your key |
-| `APIFY_TOKEN` | your token |
+| `APIFY_TOKEN` | **Required** — copy from [Apify Integrations](https://console.apify.com/account/integrations). Needed for YouTube on Render (cloud IPs are blocked by YouTube) and Instagram Reels. |
 | `CORS_ORIGINS` | `https://hashverse-two.vercel.app` |
 | `LLM_PROVIDER` | `gemini` |
 | `QDRANT_URL` | `https://<cluster>.aws.cloud.qdrant.io` |

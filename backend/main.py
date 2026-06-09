@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings
 from routers import chat, ingest
 from services.vectorstore import VectorStore
+from services.youtube import is_cloud_host
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -64,10 +65,13 @@ async def health(request: Request):
         if vector_store.using_memory
         else "local"
     )
+    cfg = get_settings()
     return {
         "status": "ok",
         "qdrant": qdrant_status,
         "collection": vector_store.collection_name,
+        "apify": "configured" if cfg.apify_token else "missing",
+        "host": "render" if is_cloud_host() else "local",
     }
 
 
