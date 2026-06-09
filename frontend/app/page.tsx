@@ -50,10 +50,20 @@ export default function Home() {
     };
   }, []);
 
-  const pollStatus = useCallback(async () => {
+  const pollStatus = useCallback(async (options?: { sessionGrace?: boolean }) => {
     try {
       const status = await getIngestStatus(sessionId);
-      setStatusMessage(status.message || status.status);
+      const message = status.message || status.status;
+      const isWarmup =
+        message.toLowerCase().includes("warming up") ||
+        message.toLowerCase().includes("retrying status");
+
+      if (isWarmup && options?.sessionGrace) {
+        setStatusMessage(message);
+        return false;
+      }
+
+      setStatusMessage(message);
 
       if (status.video_a) setVideoA(status.video_a);
       if (status.video_b) setVideoB(status.video_b);
@@ -72,6 +82,10 @@ export default function Home() {
 
       return false;
     } catch (error) {
+      if (options?.sessionGrace) {
+        setStatusMessage("Waiting for backend session...");
+        return false;
+      }
       setIngesting(false);
       setReady(false);
       setStatusMessage(error instanceof Error ? error.message : "Failed to fetch ingest status");
@@ -98,7 +112,14 @@ export default function Home() {
 
     try {
       await startIngest(sessionId, youtubeUrl, instagramUrl);
-      await pollStatus();
+      const deadline = Date.now() + 45_000;
+      let done = false;
+      while (!done && Date.now() < deadline) {
+        done = await pollStatus({ sessionGrace: true });
+        if (!done) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
     } catch (error) {
       setIngesting(false);
       setStatusMessage(error instanceof Error ? error.message : "Ingestion failed");

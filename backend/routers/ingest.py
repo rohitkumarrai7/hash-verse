@@ -7,7 +7,7 @@ import asyncio
 from fastapi import APIRouter, BackgroundTasks, Request
 
 from models import IngestRequest, IngestResponse, IngestStatusResponse
-from services.cache import CacheService
+from services.cache import get_cache_service
 from services.instagram import ingest_instagram
 from services.metadata import metadata_to_dict
 from services.vectorstore import VectorStore
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _run_ingest(session_id: str, youtube_url: str, instagram_url: str, vector_store: VectorStore) -> None:
-    cache = CacheService()
+    cache = get_cache_service()
     cache.set_session_status(session_id, "processing", "Ingesting YouTube video (Video A)...")
 
     try:
@@ -65,7 +65,7 @@ async def _ingest_task(
 @router.post("/ingest", response_model=IngestResponse)
 async def ingest_videos(payload: IngestRequest, background_tasks: BackgroundTasks, request: Request):
     vector_store: VectorStore = request.app.state.vector_store
-    cache = CacheService()
+    cache = get_cache_service()
     cache.set_session_status(payload.session_id, "processing", "Queued for ingestion")
 
     background_tasks.add_task(
@@ -85,10 +85,14 @@ async def ingest_videos(payload: IngestRequest, background_tasks: BackgroundTask
 
 @router.get("/ingest/{session_id}", response_model=IngestStatusResponse)
 async def ingest_status(session_id: str):
-    cache = CacheService()
+    cache = get_cache_service()
     status = cache.get_session_status(session_id)
     if not status:
-        return IngestStatusResponse(session_id=session_id, status="failed", message="Session not found")
+        return IngestStatusResponse(
+            session_id=session_id,
+            status="processing",
+            message="Session warming up — retrying status check...",
+        )
 
     return IngestStatusResponse(
         session_id=session_id,

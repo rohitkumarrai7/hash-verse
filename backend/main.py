@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
+from services.cache import get_cache_service
 from routers import chat, ingest
 from services.vectorstore import VectorStore
 from services.youtube import is_cloud_host
@@ -70,6 +71,7 @@ async def health(request: Request):
         "status": "ok",
         "qdrant": qdrant_status,
         "collection": vector_store.collection_name,
+        "cache": get_cache_service().backend,
         "apify": "configured" if cfg.apify_token else "missing",
         "host": "render" if is_cloud_host() else "local",
     }

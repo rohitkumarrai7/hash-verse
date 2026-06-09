@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 from graph.state import SYSTEM_PROMPT, classify_intent, parse_citations, sources_from_chunks
-from services.cache import CacheService
+from services.cache import get_cache_service
 from services.vectorstore import VectorStore
 
 
@@ -18,7 +18,7 @@ def classify_intent_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_metadata_node(state: dict[str, Any]) -> dict[str, Any]:
-    cache = CacheService()
+    cache = get_cache_service()
     session = cache.get_session_status(state["session_id"]) or {}
     video_a = session.get("video_a") or {}
     video_b = session.get("video_b") or {}

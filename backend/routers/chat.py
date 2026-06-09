@@ -13,7 +13,7 @@ from graph.builder import build_graph
 from graph.nodes import build_user_prompt, finalize_response_node
 from graph.state import SYSTEM_PROMPT, parse_citations
 from models import ChatRequest
-from services.cache import CacheService
+from services.cache import get_cache_service
 from services.llm import stream_llm
 
 router = APIRouter()
@@ -27,7 +27,7 @@ def _sse_payload(event_type: str, **fields) -> dict:
 
 @router.post("/chat")
 async def chat(payload: ChatRequest, request: Request):
-    cache = CacheService()
+    cache = get_cache_service()
     session = cache.get_session_status(payload.session_id)
     if not session or session.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Session not ready. Complete ingestion first.")
