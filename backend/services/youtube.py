@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from collections.abc import Callable
@@ -23,6 +24,7 @@ from services.ytdlp_utils import ytdlp_command, ytdlp_youtube_command
 logger = logging.getLogger(__name__)
 
 PREFERRED_LANGUAGES = ["en", "en-US", "en-GB", "en-IN", "hi", "hi-IN", "es", "fr", "de"]
+TRANSCRIPT_AI_BASE = "https://youtube-transcript.ai/transcript"
 
 APIFY_AUTH_HINT = (
     "Apify token invalid or missing on the server. In Render → hashverse-api → Environment, "
@@ -36,9 +38,65 @@ def is_cloud_host() -> bool:
 
 def _format_apify_error(exc: Exception) -> str:
     msg = str(exc).lower()
-    if "token is not valid" in msg or "user was not found" in msg or "unauthorized" in msg:
+    if (
+        "token is not valid" in msg
+        or "user was not found" in msg
+        or "unauthorized" in msg
+        or "header value" in msg
+        and "bearer" in msg
+    ):
         return APIFY_AUTH_HINT
     return str(exc)
+
+
+def _parse_transcript_ai_markdown(text: str) -> list[TranscriptSegment]:
+    pattern = re.compile(r"\[(\d+):(\d{2})\]\s*([^[\n]+)")
+    matches = list(pattern.finditer(text))
+    segments: list[TranscriptSegment] = []
+
+    for index, match in enumerate(matches):
+        start = int(match.group(1)) * 60 + int(match.group(2))
+        content = match.group(3).strip()
+        if not content:
+            continue
+        end = float(start + 5)
+        if index + 1 < len(matches):
+            next_match = matches[index + 1]
+            end = float(int(next_match.group(1)) * 60 + int(next_match.group(2)))
+        segments.append(
+            TranscriptSegment(start_time=float(start), end_time=end, text=content)
+        )
+
+    return segments
+
+
+def _fetch_via_transcript_ai_service(video_id: str) -> list[TranscriptSegment]:
+    """Free cloud-friendly fallback — no API key (youtube-transcript.ai)."""
+    lang_attempts = ["en", "hi", None]
+    last_error = "no response"
+
+    for lang in lang_attempts:
+        url = f"{TRANSCRIPT_AI_BASE}/{video_id}.txt"
+        if lang:
+            url = f"{url}?lang={lang}"
+        try:
+            response = httpx.get(url, timeout=30.0, follow_redirects=True)
+            if response.status_code != 200:
+                last_error = f"HTTP {response.status_code}"
+                continue
+            segments = _parse_transcript_ai_markdown(response.text)
+            if segments:
+                logger.info(
+                    "YouTube transcript fetched via youtube-transcript.ai (%s segments, lang=%s)",
+                    len(segments),
+                    lang or "auto",
+                )
+                return segments
+            last_error = "empty transcript"
+        except Exception as exc:
+            last_error = str(exc)
+
+    raise ValueError(f"youtube-transcript.ai failed: {last_error}")
 
 
 def _extract_video_id(url: str) -> str:
@@ -222,9 +280,11 @@ def fetch_transcript(url: str) -> list[TranscriptSegment]:
 
     strategies: list[tuple[str, Callable[[], list[TranscriptSegment]]]] = []
 
-    # On Render, YouTube blocks datacenter IPs — Apify runs on residential infra
-    if is_cloud_host() and settings.apify_token:
-        strategies.append(("apify", lambda: _fetch_via_apify(url)))
+    if is_cloud_host():
+        # Render IPs are blocked by YouTube — use keyless edge service first
+        strategies.append(
+            ("youtube-transcript.ai", lambda: _fetch_via_transcript_ai_service(video_id))
+        )
 
     strategies.extend(
         [
@@ -233,7 +293,7 @@ def fetch_transcript(url: str) -> list[TranscriptSegment]:
         ]
     )
 
-    if not any(name == "apify" for name, _ in strategies):
+    if settings.apify_token:
         strategies.append(("apify", lambda: _fetch_via_apify(url)))
 
     if not is_cloud_host():

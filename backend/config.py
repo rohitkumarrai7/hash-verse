@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,6 +41,23 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 128
     hook_window_seconds: float = 5.0
+
+    @field_validator(
+        "apify_token",
+        "gemini_api_key",
+        "openrouter_api_key",
+        "openai_api_key",
+        "qdrant_api_key",
+        mode="before",
+    )
+    @classmethod
+    def _strip_secret(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        cleaned = value.strip().strip('"').strip("'")
+        if cleaned.lower().startswith("bearer "):
+            cleaned = cleaned[7:].strip()
+        return cleaned
 
     @property
     def cors_origins_list(self) -> list[str]:
